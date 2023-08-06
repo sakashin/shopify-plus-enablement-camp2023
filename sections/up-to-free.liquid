@@ -1,0 +1,90 @@
+{% assign isNumber = false %}
+{% unless section.settings.free-shipping-price == "" %}
+  {% assign freeShippingPrice = section.settings.free-shipping-price | plus: 0 %}
+  {% unless freeShippingPrice == 0 %}
+    {% assign isNumber = true %}
+  {% endunless %}
+{% endunless %}
+
+<div class="page-width" id="about-shipping-message">
+	<p>あと<span id="about-remaining-price"></span>で送料無料になります。</p>
+</div>
+
+<script>
+{% if isNumber  %}
+  const freeShippingPrice = parseInt({{ section.settings.free-shipping-price }});
+{% else %}
+  const freeShippingPrice = 5000;
+{% endif %}
+</script>
+{% comment %}
+　Q.javascriptタグ内にliquidコードを書くとそのまま表示されてしまう。
+ Javascriptの中身を動的に渡す方法は↑のような書き方で良いのか？
+{% endcomment %}
+{% javascript %}
+
+  window.addEventListener('DOMContentLoaded', (event) => {
+    const observer = new MutationObserver(freeShippingChecker);
+    const elem = document.getElementById('main-cart-footer');
+    const config = { 
+      attributes: true, 
+      childList: true, 
+      characterData: true,
+      subtree: true
+    };
+    observer.observe(elem, config);
+  	freeShippingChecker();
+  });
+  const freeShippingChecker = () => {
+  	const xhr = new XMLHttpRequest();
+    xhr.open('GET', '/cart.json', true);
+    xhr.onload = () => {
+      if (xhr.status === 200) {
+        const cart = JSON.parse(xhr.responseText);
+        const totalPrice = cart.total_price / 100;
+  			const aboutShippingMessage = document.getElementById('about-shipping-message');
+        const remainingPrice = freeShippingPrice - totalPrice;
+  			const aboutRemainingPrice = document.getElementById('about-remaining-price');
+        if ( remainingPrice > 0 ){
+            aboutShippingMessage.style.display = 'block';
+            aboutRemainingPrice.innerText = remainingPrice.toLocaleString('ja-JP', { style: 'currency', currency: 'JPY' });;
+        } else {
+            aboutShippingMessage.style.display = 'none';
+  			}
+      }
+    };
+    xhr.send();
+  }
+{% endjavascript %}
+{% stylesheet %}
+  #about-shipping-message {
+	display: none;
+  text-align: right;
+  }
+  #about-remaining-price {
+      color: #C00;
+      font-weight: bold;
+  }
+{% endstylesheet %}
+
+{% schema %}
+  {
+    "name": "あといくらで無料",
+    "tag": "section",
+    "class": "section",
+    "limit": 1,
+    "settings": [
+      {
+        "type": "text" ,
+        "id": "free-shipping-price" ,
+        "label": "配送料無料の基準金額",
+        "default": "5000",
+        "info" : "配送料が無料になる金額を設定してください。その金額までをカウントし、その金額を超えると表示が消えるようになります。空白または間違った指定内容の場合、5,000円に設定されます。"
+      }],
+    "presets": [
+      {
+        "name": "あといくらで無料"
+      }
+    ]
+  }
+{% endschema %}
